@@ -61,12 +61,12 @@ class MailBox:
         )
         self.connected = False
 
-    def __enter__(self):
+    async def __aenter__(self):
         self._connect_to_mail()
         return self
 
-    def __exit__(self, *args):
-        self._close_connection()
+    async def __aexit__(self, *args):
+        await self._close_connection()
 
     async def check_email(self):
         await self._connect_to_mail()
@@ -201,7 +201,7 @@ class MailBox:
     ) -> any | list[any] | None:
         end_time = asyncio.get_event_loop().time() + timeout
         if start_date is None:
-            start_date = datetime.now(pytz.utc) - timedelta(seconds=10)
+            start_date = datetime.now(pytz.utc) - timedelta(seconds=15)
 
         while asyncio.get_event_loop().time() < end_time:
             match = await self.search_match(
