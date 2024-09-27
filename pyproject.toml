@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "better-imap"
+version = "0.1.0"
+description = "Tool for working with imap"
+authors = ["T1murKO"]
+readme = "README.md"
+packages = [{include = "better_imap"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+better-proxy = ">=1.1"
+python-socks = ">=2.5.0, <3"
+httpx = ">=0.22"
+aioimaplib = ">=1.1.0, <1.2"
+pytz = "^2024.2"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
