@@ -16,3 +16,8 @@ class EmailFolderSelectionError(BaseEmailException):
 class EmailLoginError(BaseEmailException):
     def __init__(self, *args):
         super().__init__(*args)
+
+
+class EmailSearchTimeout(BaseEmailException):
+    def __init__(self, *args):
+        super().__init__(*args)
