@@ -80,6 +80,7 @@ class MailBox:
         self,
         folder: Literal["INBOX", "Junk", "Spam"] = "INBOX",
         search_criteria: Literal["ALL", "UNSEEN"] = "ALL",
+        receiver: str | None = None,
         sender_email: str = None,
         sender_email_regex: str | re.Pattern[str] = None,
         n_latest_messages: int | None = None,
@@ -91,6 +92,7 @@ class MailBox:
             search_criteria=search_criteria,
             sender_email=sender_email,
             sender_email_regex=sender_email_regex,
+            receiver=receiver,
             n_latest_messages=n_latest_messages,
             since_date=since_date,
         )
@@ -100,6 +102,7 @@ class MailBox:
         search_criteria: Literal["ALL", "UNSEEN"] = "ALL",
         sender_email: str = None,
         sender_email_regex: str | re.Pattern[str] = None,
+        receiver: str | None = None,
         n_latest_messages: int | None = None,
         since_date: datetime = None,
     ) -> list[EmailMessage]:
@@ -138,6 +141,9 @@ class MailBox:
             ):
                 continue
 
+            if receiver and receiver.lower() not in email_message.receiver.lower():
+                continue
+
             messages.append(email_message)
 
         return messages
@@ -147,6 +153,7 @@ class MailBox:
         regex_pattern: str | re.Pattern[str],
         sender_email: str | None = None,
         sender_email_regex: str | re.Pattern[str] = None,
+        receiver: str | None = None,
         latest_messages: int = 10,
         start_date: datetime = None,
         hours_offset=24,
@@ -168,6 +175,7 @@ class MailBox:
                 search_criteria="ALL",
                 sender_email=sender_email,
                 sender_email_regex=sender_email_regex,
+                receiver=receiver,
                 n_latest_messages=latest_messages,
                 since_date=start_date,
             )
@@ -193,6 +201,7 @@ class MailBox:
         regex_pattern: str | re.Pattern[str],
         sender_email: str | re.Pattern[str] = None,
         sender_email_regex: str | re.Pattern[str] = None,
+        receiver: str | None = None,
         start_date: datetime = None,
         return_latest_match=True,
         interval=5,
@@ -208,6 +217,7 @@ class MailBox:
                 regex_pattern=regex_pattern,
                 sender_email=sender_email,
                 sender_email_regex=sender_email_regex,
+                receiver=receiver,
                 start_date=start_date,
                 latest_messages=5,
                 return_latest_match=return_latest_match,
