@@ -5,7 +5,7 @@ import ssl
 from aioimaplib import IMAP4ClientProtocol, IMAP4_SSL
 import asyncio
 
-from .email_exceptions import EmailConnectionError
+from .exceptions import EmailConnectionError
 from python_socks.async_.asyncio import Proxy as ProxyClient
 from python_socks._errors import (
     ProxyConnectionError as SocksProxyConnectionError,

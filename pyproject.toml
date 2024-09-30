@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "better-imap"
-version = "0.1.14"
+version = "0.1.2"
 description = "Tool for working with imap"
 authors = ["T1murKO"]
 readme = "README.md"
@@ -14,6 +14,7 @@ httpx = ">=0.22"
 aioimaplib = ">=1.1.0, <1.2"
 pytz = "^2024.2"
 async-timeout = "^4.0.3"
+beautifulsoup4 = "^4.12.3"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24"

@@ -3,6 +3,7 @@ from __future__ import annotations
 from email import message_from_bytes
 from email.utils import parsedate_to_datetime
 from typing import Literal
+from bs4 import BeautifulSoup
 
 import pytz
 from better_proxy import Proxy
@@ -288,14 +289,59 @@ class MailBox:
 
     @staticmethod
     def extract_email_text(email_message):
+        text_content = None
+        html_content = None
+
         if email_message.is_multipart():
             for part in email_message.walk():
-                if part.get_content_type() == "text/plain":
-                    return part.get_payload(decode=True).decode("utf-8")
-        msg = email_message.get_payload(decode=True)
-        if msg is None:
+                content_type = part.get_content_type()
+                content_disposition = str(part.get("Content-Disposition"))
+
+                if "attachment" in content_disposition:
+                    continue
+
+                if content_type == "text/plain":
+                    charset = part.get_content_charset() or "utf-8"
+                    text_content = part.get_payload(decode=True).decode(
+                        charset, errors="replace"
+                    )
+                elif content_type == "text/html":
+                    charset = part.get_content_charset() or "utf-8"
+                    html_content = part.get_payload(decode=True).decode(
+                        charset, errors="replace"
+                    )
+        else:
+            content_type = email_message.get_content_type()
+            charset = email_message.get_content_charset() or "utf-8"
+
+            if content_type == "text/plain":
+                text_content = email_message.get_payload(decode=True).decode(
+                    charset, errors="replace"
+                )
+            elif content_type == "text/html":
+                html_content = email_message.get_payload(decode=True).decode(
+                    charset, errors="replace"
+                )
+
+        if text_content and text_content.strip():
+            cleaned_text = MailBox.clean_text(text_content)
+            return cleaned_text
+        elif html_content:
+            soup = BeautifulSoup(html_content, "html.parser")
+            text = soup.get_text()
+            cleaned_text = MailBox.clean_text(text)
+            return cleaned_text
+        else:
             return ""
-        return msg.decode("utf-8")
+
+    @staticmethod
+    def clean_text(text):
+        text = text.strip()
+        text = re.sub(r"\n\s*\n", "\n", text)
+        lines = text.split("\n")
+        lines = [line.strip() for line in lines if line.strip()]
+        cleaned_text = "\n".join(lines)
+        return cleaned_text
 
     async def _select_mailbox(self, mailbox: str):
         try:
