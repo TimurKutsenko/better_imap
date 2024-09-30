@@ -8,12 +8,11 @@ import pytz
 from better_proxy import Proxy
 
 from better_imap.domains import determine_email_domain, EmailEncoding, EmailDomain
-from .email_exceptions import (
-    EmailLoginError,
+from .exceptions import (
     EmailConnectionError,
     EmailFolderSelectionError,
     EmailSearchTimeout,
-    EmailBannedOrCredentialsWrongOrImapOffError,
+    EmailLoginFailed,
 )
 from datetime import datetime, timedelta
 from .imap_client import ImapProxyClient
@@ -272,11 +271,11 @@ class MailBox:
             await self.email_client.select(mailbox=mailbox)
         except EmailAbortError as e:
             if "command SELECT illegal in state NONAUTH" in str(e):
-                raise EmailBannedOrCredentialsWrongOrImapOffError(
+                raise EmailLoginFailed(
                     f"Email account banned or login/password incorrect or IMAP not enabled: {e}"
                 )
 
-            raise EmailLoginError(f"Can not login to mail: {e}")
+            raise EmailLoginFailed(f"Can not login to mail: {e}")
 
         self.connected = True
 

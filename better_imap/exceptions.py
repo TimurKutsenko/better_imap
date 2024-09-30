@@ -13,12 +13,7 @@ class EmailFolderSelectionError(BaseEmailException):
         super().__init__(*args)
 
 
-class EmailLoginError(BaseEmailException):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-
-class EmailBannedOrCredentialsWrongOrImapOffError(EmailLoginError):
+class EmailLoginFailed(BaseEmailException):
     def __init__(self, *args):
         super().__init__(*args)
 
