@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from email import message_from_bytes
 from email.utils import parsedate_to_datetime
-from pyexpat.errors import messages
 from typing import Literal
 
 import pytz
@@ -14,11 +13,13 @@ from .email_exceptions import (
     EmailConnectionError,
     EmailFolderSelectionError,
     EmailSearchTimeout,
+    EmailBannedOrCredentialsWrongOrImapOffError,
 )
 from datetime import datetime, timedelta
 from .imap_client import ImapProxyClient
 import re
 import asyncio
+from aioimaplib import Abort as EmailAbortError, Error as EmailError
 
 from .models import EmailMessage
 
@@ -62,7 +63,7 @@ class MailBox:
         self.connected = False
 
     async def __aenter__(self):
-        self._connect_to_mail()
+        await self._connect_to_mail()
         return self
 
     async def __aexit__(self, *args):
@@ -228,45 +229,6 @@ class MailBox:
             await asyncio.sleep(interval)
         raise EmailSearchTimeout(f"No email received within {timeout} seconds")
 
-    #
-    # async def _search_match(
-    #     self,
-    #     regex_pattern: str | re.Pattern[str],
-    #     search_criteria="UNSEEN",
-    #     latest_messages=10,
-    #     from_email=None,
-    #     start_date=None,
-    # ):
-    #
-    #     if start_date is not None:
-    #         date_filter = start_date.strftime("%d-%b-%Y")
-    #         search_criteria += f" SINCE {date_filter}"
-    #
-    #     if from_email:
-    #         search_criteria += f' FROM "{from_email}"'
-    #
-    #     status, data = await self.email_client.search(
-    #         search_criteria, charset=self.encoding
-    #     )
-    #     if status != "OK" or not data[0]:
-    #         return None
-    #
-    #     email_ids = data[0].split()[-latest_messages:][::-1]
-    #     for e_id_str in email_ids:
-    #         email_data, message_text = await self._get_email(
-    #             e_id_str.decode(self.encoding)
-    #         )
-    #         if not email_data:
-    #             continue
-    #
-    #         if start_date and email_data < start_date:
-    #             continue
-    #
-    #         if regex_pattern:
-    #             match = self._find_first_match(regex_pattern, message_text)
-    #             if match:
-    #                 return match, email_data
-
     async def _get_email(self, email_id) -> EmailMessage:
         typ, msg_data = await self.email_client.fetch(email_id, "(RFC822)")
         if typ == "OK":
@@ -303,14 +265,14 @@ class MailBox:
 
         try:
             await self.email_client.wait_hello_from_server()
-        except Exception as e:
+        except EmailError as e:
             raise EmailConnectionError(f"Email connection failed: {e}")
         try:
             await self.email_client.login(self._email_address, self._password)
             await self.email_client.select(mailbox=mailbox)
-        except Exception as e:
+        except EmailAbortError as e:
             if "command SELECT illegal in state NONAUTH" in str(e):
-                raise EmailLoginError(
+                raise EmailBannedOrCredentialsWrongOrImapOffError(
                     f"Email account banned or login/password incorrect or IMAP not enabled: {e}"
                 )
 

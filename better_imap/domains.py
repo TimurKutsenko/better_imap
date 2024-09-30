@@ -1,5 +1,10 @@
 from enum import StrEnum
 from typing import Tuple, Optional
+import json
+from pathlib import Path
+
+with open(Path(__file__).parent / "known_domains.json") as f:
+    KNOWN_DOMAINS = json.load(f)
 
 
 class EmailEncoding(StrEnum):
@@ -13,6 +18,7 @@ class EmailDomain(StrEnum):
     FIRSTMAIL = "firstmail"
     MAILRU = "mailru"
     GMAIL = "gmail"
+    ICLOUD = "icloud"
     CUSTOM = "custom"
 
     def imap_server_info(self) -> Optional[Tuple[str, EmailEncoding]]:
@@ -49,13 +55,10 @@ def determine_email_domain(email: str) -> EmailDomain:
     except IndexError:
         raise ValueError("Invalid email address format.")
 
-    domain_mapping = {
-        "rambler.ru": EmailDomain.RAMBLER,
-        "outlook.com": EmailDomain.OUTLOOK,
-        "mail.ru": EmailDomain.MAILRU,
-        "gmail.com": EmailDomain.GMAIL,
-        "firstmail.ru": EmailDomain.FIRSTMAIL,
-        "senoramail.com": EmailDomain.FIRSTMAIL,
-    }
+    domain = (
+        EmailDomain(KNOWN_DOMAINS[str_domain])
+        if str_domain in KNOWN_DOMAINS
+        else EmailDomain.CUSTOM
+    )
 
-    return domain_mapping.get(str_domain, EmailDomain.CUSTOM)
+    return domain
