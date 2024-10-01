@@ -8,7 +8,6 @@ class Service(BaseModel):
     name: str | None = None
     host: str
     folders: Sequence[str] = ("INBOX", )
-    domains: Sequence[str]
     encoding: str | None = "UTF-8"  # "US-ASCII"
 
 
