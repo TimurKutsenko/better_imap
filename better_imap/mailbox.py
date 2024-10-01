@@ -1,101 +1,166 @@
-from __future__ import annotations
+import asyncio
+import ssl
+import re
 
 from email import message_from_bytes
 from email.utils import parsedate_to_datetime
-from typing import Literal
+from datetime import datetime, timedelta
+from typing import Literal, Sequence, Callable
 from bs4 import BeautifulSoup
 
 import pytz
-from better_proxy import Proxy
-
-from better_imap.domains import determine_email_domain, EmailEncoding, EmailDomain
-from .exceptions import (
-    EmailConnectionError,
-    EmailFolderSelectionError,
-    EmailSearchTimeout,
-    EmailLoginFailed,
-)
-from datetime import datetime, timedelta
-from .imap_client import ImapProxyClient
-import re
-import asyncio
-from aioimaplib import Abort as EmailAbortError, Error as EmailError
+import aioimaplib
 
 from .models import EmailMessage
+from .errors import (
+    IMAPSearchTimeout,
+    IMAPLoginFailed,
+)
+
+from aioimaplib import IMAP4ClientProtocol, IMAP4_SSL
+from python_socks.async_.asyncio import Proxy as ProxyClient
+from python_socks import ProxyType
+from better_proxy import Proxy
+
+
+class IMAP4_PROXY_SSL(aioimaplib.IMAP4_SSL):
+    def __init__(
+        self,
+        host: str = '127.0.0.1',
+        port: int = 993,
+        *,
+        timeout: float = IMAP4_SSL.TIMEOUT_SECONDS,
+        ssl_context: ssl.SSLContext = None,
+        proxy: Proxy = None,
+    ):
+        self._proxy = proxy
+        self._loop = asyncio.get_running_loop()
+
+        if not ssl_context:
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+
+        super().__init__(host=host, port=port, timeout=timeout, ssl_context=ssl_context)
+
+    def create_client(
+        self,
+        host: str,
+        port: int,
+        loop: asyncio.AbstractEventLoop,
+        conn_lost_cb: Callable[[Exception | None], None] = None,
+        ssl_context: ssl.SSLContext = None,
+    ):
+        self.protocol = IMAP4ClientProtocol(self._loop, conn_lost_cb)
+
+        if ssl_context is None:
+            ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+
+        if self._proxy:
+            self._loop.create_task(
+                self._proxy_connect(
+                    loop or self._loop, lambda: self.protocol, ssl_context
+                )
+            )
+        else:
+            self._loop.create_task(
+                self._loop.create_connection(
+                    lambda: self.protocol, host, port, ssl=ssl_context
+                )
+            )
+
+    async def _proxy_connect(
+        self,
+        loop: asyncio.AbstractEventLoop,
+        protocol_factory,
+        ssl_context: ssl.SSLContext | None = None,
+    ):
+        proxy_type_mapping = {
+            "HTTP": ProxyType.HTTP,
+            "SOCKS4": ProxyType.SOCKS4,
+            "SOCKS5": ProxyType.SOCKS5,
+        }
+        proxy_type = proxy_type_mapping.get(self._proxy.protocol, ProxyType.HTTP)
+
+        proxy_client = ProxyClient.create(
+            proxy_type=proxy_type,
+            host=self._proxy.host,
+            port=self._proxy.port,
+            username=self._proxy.login,
+            password=self._proxy.password,
+            loop=loop,
+        )
+        sock = await proxy_client.connect(
+            self.host, self.port, timeout=self.timeout
+        )
+        await loop.create_connection(
+            protocol_factory,
+            sock=sock,
+            ssl=ssl_context,
+            server_hostname=self.host if ssl_context else None,
+        )
 
 
 class MailBox:
-    FOLDER_NAMES = ["INBOX", "Junk", "Spam"]
-
     def __init__(
         self,
-        email_address: str,
+        address: str,
         password: str,
-        proxy: Proxy | None = None,
-        imap_host: str | None = None,
-        domain: EmailDomain | None = None,
-        folder_names: list[str] = None,
+        *,
+        host: str,
         timeout: float = 30,
-        encoding=EmailEncoding.UTF8,
+        encoding: str = "UTF-8",
+        proxy: Proxy | str = None,
     ):
-        self._email_address = email_address
+        self._address = address
         self._password = password
-        self.domain = domain or determine_email_domain(email_address)
-        self.imap_host, self.encoding = self.domain.imap_server_info()
+        self.encoding = encoding
 
-        if not imap_host and not self.imap_host and not domain:
-            raise EmailConnectionError(
-                "Host or domain not provided and domain can not be determined from email"
-            )
+        if host == "imap.rambler.ru" and "%" in self._password:
+            raise IMAPLoginFailed(f"IMAP password contains '%' character. Change your password."
+                                  f"It's a specific rambler.ru error")
 
-        self.imap_host = imap_host or self.imap_host
-        self.encoding = encoding or self.encoding
-
-        self._verify_data()
-
-        self.folder_names = folder_names or self.FOLDER_NAMES
-
-        self.email_client = ImapProxyClient(
-            host=self.imap_host,
+        self.connected = False
+        self.imap = IMAP4_PROXY_SSL(
+            host=host,
             timeout=timeout,
             proxy=proxy,
         )
-        self.connected = False
 
     async def __aenter__(self):
         await self._connect_to_mail()
         return self
 
     async def __aexit__(self, *args):
-        await self._close_connection()
+        await self.imap.logout()
 
-    async def check_email(self):
+    async def check_email(self, folders: Sequence[str]):
         await self._connect_to_mail()
 
-        for mailbox in self.folder_names:
-            await self._select_mailbox(mailbox)
+        for mailbox in folders:
+            await self.imap.select(mailbox=mailbox)
 
-        await self._close_connection()
+        await self.imap.logout()
 
     async def fetch_messages(
         self,
-        folder: Literal["INBOX", "Junk", "Spam"] = "INBOX",
+        folder: str,
         search_criteria: Literal["ALL", "UNSEEN"] = "ALL",
         receiver: str | None = None,
         sender_email: str = None,
         sender_email_regex: str | re.Pattern[str] = None,
-        n_latest_messages: int | None = None,
-        since_date: datetime = None,
+        limit: int | None = None,
+        since: datetime = None,
     ) -> list[EmailMessage]:
         await self._connect_to_mail()
-        await self._select_mailbox(folder)
+        await self.imap.select(mailbox=folder)
         return await self._fetch_messages(
             search_criteria=search_criteria,
             sender_email=sender_email,
             sender_email_regex=sender_email_regex,
             receiver=receiver,
-            n_latest_messages=n_latest_messages,
-            since_date=since_date,
+            limit=limit,
+            since=since,
         )
 
     async def _fetch_messages(
@@ -104,37 +169,37 @@ class MailBox:
         sender_email: str = None,
         sender_email_regex: str | re.Pattern[str] = None,
         receiver: str | None = None,
-        n_latest_messages: int | None = None,
-        since_date: datetime = None,
+        limit: int | None = None,
+        since: datetime = None,
     ) -> list[EmailMessage]:
 
-        if since_date:
-            date_filter = since_date.strftime("%d-%b-%Y")
+        if since:
+            date_filter = since.strftime("%d-%b-%Y")
             search_criteria += f" SINCE {date_filter}"
 
         if sender_email:
             search_criteria += f' FROM "{sender_email}"'
 
-        status, data = await self.email_client.search(
+        status, data = await self.imap.search(
             search_criteria, charset=self.encoding
         )
+
         if status != "OK":
             return []
-            # raise EmailConnectionError(
-            #     f"Failed to search for emails: {data}, status {status}"
-            # )
 
         if not data[0]:
             return []
+
         email_ids = data[0].split()
-        if n_latest_messages:
-            email_ids = email_ids[-n_latest_messages:]
+        if limit:
+            email_ids = email_ids[-limit:]
+
         email_ids = email_ids[::-1]
         messages = []
         for e_id_str in email_ids:
             email_message = await self._get_email(e_id_str.decode(self.encoding))
 
-            if since_date and email_message.date < since_date:
+            if since and email_message.date < since:
                 continue
 
             if sender_email_regex and not re.search(
@@ -151,18 +216,16 @@ class MailBox:
 
     async def search_match(
         self,
-        regex_pattern: str | re.Pattern[str],
+        regex: str | re.Pattern[str],
         sender_email: str | None = None,
         sender_email_regex: str | re.Pattern[str] = None,
         receiver: str | None = None,
-        latest_messages: int = 10,
+        limit: int = 10,
         start_date: datetime = None,
         hours_offset=24,
         return_latest_match=True,
+        folders: Sequence[str] = ("INBOX", "Spam"),
     ) -> any | list[any] | None:
-        if not regex_pattern:
-            raise ValueError("Regex pattern must be provided to search for a match")
-
         if start_date is None:
             start_date = datetime.now(pytz.utc) - timedelta(hours=hours_offset)
 
@@ -170,24 +233,24 @@ class MailBox:
 
         matches = []
 
-        for mailbox in self.folder_names:
+        for folder in folders:
             messages = await self.fetch_messages(
-                folder=mailbox,
+                folder=folder,
                 search_criteria="ALL",
                 sender_email=sender_email,
                 sender_email_regex=sender_email_regex,
                 receiver=receiver,
-                n_latest_messages=latest_messages,
-                since_date=start_date,
+                limit=limit,
+                since=start_date,
             )
 
             for message in messages:
-                match = self.match_email_content(message.text, regex_pattern)
+                match = self.match_email_content(message.text, regex)
 
                 if match:
                     matches.append((message, match))
 
-        await self._close_connection()
+        await self.imap.logout()
 
         if not matches:
             return None
@@ -205,8 +268,8 @@ class MailBox:
         receiver: str | None = None,
         start_date: datetime = None,
         return_latest_match=True,
-        interval=5,
-        timeout=90,
+        interval: int = 5,
+        timeout: int = 90,
         **kwargs,
     ) -> any | list[any] | None:
         end_time = asyncio.get_event_loop().time() + timeout
@@ -215,22 +278,25 @@ class MailBox:
 
         while asyncio.get_event_loop().time() < end_time:
             match = await self.search_match(
-                regex_pattern=regex_pattern,
+                regex=regex_pattern,
                 sender_email=sender_email,
                 sender_email_regex=sender_email_regex,
                 receiver=receiver,
                 start_date=start_date,
-                latest_messages=5,
+                limit=5,
                 return_latest_match=return_latest_match,
                 **kwargs,
             )
+
             if match:
                 return match
+
             await asyncio.sleep(interval)
-        raise EmailSearchTimeout(f"No email received within {timeout} seconds")
+
+        raise IMAPSearchTimeout(f"No email received within {timeout} seconds")
 
     async def _get_email(self, email_id) -> EmailMessage:
-        typ, msg_data = await self.email_client.fetch(email_id, "(RFC822)")
+        typ, msg_data = await self.imap.fetch(email_id, "(RFC822)")
         if typ == "OK":
             email_bytes = bytes(msg_data[1])
             email_message = message_from_bytes(email_bytes)
@@ -253,32 +319,22 @@ class MailBox:
                 subject=subject,
             )
 
-    def _verify_data(self):
-        if self.imap_host == "imap.rambler.ru" and "%" in self._password:
-            raise Exception(
-                f"IMAP password contains '%' character. Change your password"
-            )
-
     async def _connect_to_mail(self, mailbox="INBOX"):
         if self.connected:
             return
 
+        await self.imap.wait_hello_from_server()
+
         try:
-            await self.email_client.wait_hello_from_server()
-        except EmailError as e:
-            raise EmailConnectionError(f"Email connection failed: {e}")
-        try:
-            await self.email_client.login(self._email_address, self._password)
-            await self.email_client.select(mailbox=mailbox)
-        except EmailAbortError as e:
-            if "command SELECT illegal in state NONAUTH" in str(e):
-                raise EmailLoginFailed(
-                    f"Email account banned or login/password incorrect or IMAP not enabled: {e}"
+            await self.imap.login(self._address, self._password)
+            self.connected = True
+        except aioimaplib.Abort as exc:
+            if "command SELECT illegal in state NONAUTH" in str(exc):
+                raise IMAPLoginFailed(
+                    f"Email account banned or login/password incorrect or IMAP not enabled: {exc}"
                 )
 
-            raise EmailLoginFailed(f"Can not login to mail: {e}")
-
-        self.connected = True
+            raise IMAPLoginFailed(f"IMAP login failed: {exc}")
 
     @staticmethod
     def match_email_content(message_text: str, regex_pattern: str | re.Pattern[str]):
@@ -342,22 +398,3 @@ class MailBox:
         lines = [line.strip() for line in lines if line.strip()]
         cleaned_text = "\n".join(lines)
         return cleaned_text
-
-    async def _select_mailbox(self, mailbox: str):
-        try:
-            await self.email_client.select(mailbox=mailbox)
-            if self.email_client.get_state() == "AUTH":
-                raise EmailFolderSelectionError(
-                    "Mail does not give access to the folder, likely IMAP is not enabled"
-                )
-
-        except TimeoutError:
-            raise EmailFolderSelectionError(
-                "Mail does not give access to the folder, timeout"
-            )
-
-    async def _close_connection(self):
-        try:
-            await self.email_client.logout()
-        except Exception:
-            pass

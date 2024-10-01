@@ -1,4 +1,5 @@
-from .domains import EmailEncoding, EmailDomain
-from .exceptions import *
-from .imap_client import ImapProxyClient
-from .mailbox import MailBox
+from .mailbox import MailBox, IMAP4_PROXY_SSL, EmailMessage
+
+from .errors import BetterImapException
+from .errors import IMAPLoginFailed
+from .errors import IMAPSearchTimeout
