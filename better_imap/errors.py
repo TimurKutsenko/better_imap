@@ -3,7 +3,8 @@ class BetterImapException(Exception):
 
 
 class IMAPLoginFailed(BetterImapException):
-    pass
+    def __init__(self):
+        super().__init__(f"IMAP disabled or account banned or incorrect login/password")
 
 
 class IMAPSearchTimeout(BetterImapException):

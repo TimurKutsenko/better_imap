@@ -21,16 +21,17 @@ class IMAP4_SSL_PROXY(IMAP4_SSL):
             ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
 
             # В Украине нет доступа к Рамблеру без этих настроек
-            # ssl_context.verify_mode = ssl.CERT_NONE
-            # ssl_context.check_hostname = False
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+
+        if not self._proxy:
+            super().create_client(host, port, local_loop, conn_lost_cb, ssl_context)
+            return
 
         async def create_connection():
             proxy = AsyncProxy.from_url(self._proxy.as_url)
             sock = await proxy.connect(dest_host=host, dest_port=port)
             await local_loop.create_connection(lambda: self.protocol, sock=sock, ssl=ssl_context, server_hostname=host)
 
-        if self._proxy:
-            self.protocol = IMAP4ClientProtocol(local_loop, conn_lost_cb)
-            local_loop.create_task(create_connection())
-        else:
-            super().create_client(host, port, local_loop, conn_lost_cb, ssl_context)
+        self.protocol = IMAP4ClientProtocol(local_loop, conn_lost_cb)
+        local_loop.create_task(create_connection())

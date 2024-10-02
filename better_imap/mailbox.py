@@ -6,7 +6,6 @@ from email.utils import parsedate_to_datetime
 import re
 
 import pytz
-import aioimaplib
 from better_proxy import Proxy
 
 from .proxy import IMAP4_SSL_PROXY
@@ -28,8 +27,8 @@ class MailBox:
         timeout: float = 10,
     ):
         if service.host == "imap.rambler.ru" and "%" in password:
-            raise IMAPLoginFailed(f"IMAP password contains '%' character. Change your password."
-                                  f" It's a specific rambler.ru error")
+            raise ValueError(f"IMAP password contains '%' character. Change your password."
+                             f" It's a specific rambler.ru error")
 
         self._address = address
         self._password = password
@@ -56,36 +55,13 @@ class MailBox:
             return
 
         await self._imap.wait_hello_from_server()
-
-        try:
-            await self._imap.login(self._address, self._password)
-            self._connected = True
-        except aioimaplib.Abort as exc:
-            if "command SELECT illegal in state NONAUTH" in str(exc):
-                raise IMAPLoginFailed(f"Email account banned"
-                                      f" or login/password incorrect"
-                                      f" or IMAP not enabled: {exc}")
-
-            raise IMAPLoginFailed(f"IMAP login failed: {exc}")
+        await self._imap.login(self._address, self._password)
+        if self._imap.get_state() == "NONAUTH":
+            raise IMAPLoginFailed()
+        self._connected = True
 
     async def _select(self, folder: str):
-        try:
-            return await self._imap.select(mailbox=folder)
-        except aioimaplib.Abort as exc:
-            if "command SELECT illegal in state NONAUTH" in str(exc):
-                raise IMAPLoginFailed(f"Email account banned"
-                                      f" or login/password incorrect"
-                                      f" or IMAP not enabled: {exc}")
-
-    async def check_email(self, folders: Sequence[str] = None):
-        await self.login()
-
-        folders = folders or self._service.folders
-
-        for folder in folders:
-            await self._select(folder)
-
-        await self.logout()
+        return await self._imap.select(mailbox=folder)
 
     async def get_message_by_id(self, id) -> EmailMessage:
         typ, msg_data = await self._imap.fetch(id, "(RFC822)")
