@@ -21,8 +21,8 @@ class IMAP4_SSL_PROXY(IMAP4_SSL):
             ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
 
             # В Украине нет доступа к Рамблеру без этих настроек
-            ssl_context.verify_mode = ssl.CERT_NONE
-            ssl_context.check_hostname = False
+            # ssl_context.verify_mode = ssl.CERT_NONE
+            # ssl_context.check_hostname = False
 
         async def create_connection():
             proxy = AsyncProxy.from_url(self._proxy.as_url)

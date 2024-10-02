@@ -1,5 +1,5 @@
 from typing import Sequence
-import datetime
+from datetime import datetime
 
 from pydantic import BaseModel
 

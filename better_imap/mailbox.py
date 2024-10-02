@@ -42,13 +42,16 @@ class MailBox:
         )
 
     async def __aenter__(self):
-        await self._connect()
+        await self.login()
         return self
 
     async def __aexit__(self, *args):
+        await self.logout()
+
+    async def logout(self):
         await self._imap.logout()
 
-    async def _connect(self):
+    async def login(self):
         if self._connected:
             return
 
@@ -65,15 +68,48 @@ class MailBox:
 
             raise IMAPLoginFailed(f"IMAP login failed: {exc}")
 
+    async def _select(self, folder: str):
+        try:
+            return await self._imap.select(mailbox=folder)
+        except aioimaplib.Abort as exc:
+            if "command SELECT illegal in state NONAUTH" in str(exc):
+                raise IMAPLoginFailed(f"Email account banned"
+                                      f" or login/password incorrect"
+                                      f" or IMAP not enabled: {exc}")
+
     async def check_email(self, folders: Sequence[str] = None):
-        await self._connect()
+        await self.login()
 
         folders = folders or self._service.folders
 
-        for mailbox in folders:
-            await self._imap.select(mailbox=mailbox)
+        for folder in folders:
+            await self._select(folder)
 
-        await self._imap.logout()
+        await self.logout()
+
+    async def get_message_by_id(self, id) -> EmailMessage:
+        typ, msg_data = await self._imap.fetch(id, "(RFC822)")
+        if typ == "OK":
+            email_bytes = bytes(msg_data[1])
+            email_message = message_from_bytes(email_bytes)
+            email_sender = email_message.get("from")
+            email_receiver = email_message.get("to")
+            subject = email_message.get("subject")
+            email_date = parsedate_to_datetime(email_message.get("date"))
+
+            if email_date.tzinfo is None:
+                email_date = pytz.utc.localize(email_date)
+            elif email_date.tzinfo != pytz.utc:
+                email_date = email_date.astimezone(pytz.utc)
+
+            message_text = extract_email_text(email_message)
+            return EmailMessage(
+                text=message_text,
+                date=email_date,
+                sender=email_sender,
+                receiver=email_receiver,
+                subject=subject,
+            )
 
     async def fetch_messages(
             self,
@@ -85,9 +121,9 @@ class MailBox:
             allowed_receivers: Sequence[str] = None,
             sender_regex: str | re.Pattern[str] = None,
     ) -> list[EmailMessage]:
-        await self._connect()
+        await self.login()
 
-        await self._imap.select(mailbox=folder)
+        await self._select(folder)
 
         if since:
             date_filter = since.strftime("%d-%b-%Y")
@@ -127,32 +163,9 @@ class MailBox:
 
         return messages
 
-    async def get_message_by_id(self, id) -> EmailMessage:
-        typ, msg_data = await self._imap.fetch(id, "(RFC822)")
-        if typ == "OK":
-            email_bytes = bytes(msg_data[1])
-            email_message = message_from_bytes(email_bytes)
-            email_sender = email_message.get("from")
-            email_receiver = email_message.get("to")
-            subject = email_message.get("subject")
-            email_date = parsedate_to_datetime(email_message.get("date"))
-
-            if email_date.tzinfo is None:
-                email_date = pytz.utc.localize(email_date)
-            elif email_date.tzinfo != pytz.utc:
-                email_date = email_date.astimezone(pytz.utc)
-
-            message_text = extract_email_text(email_message)
-            return EmailMessage(
-                text=message_text,
-                date=email_date,
-                sender=email_sender,
-                receiver=email_receiver,
-                subject=subject,
-            )
-
     async def search_matches(
         self,
+        regex: str | re.Pattern[str],
         folders: Sequence[str] = None,
         *,
         search_criteria: Literal["ALL", "UNSEEN"] = "ALL",
@@ -161,9 +174,8 @@ class MailBox:
         allowed_senders: Sequence[str] = None,
         allowed_receivers: Sequence[str] = None,
         sender_regex: str | re.Pattern[str] = None,
-        regex: str | re.Pattern[str],
     ) -> list[str]:
-        await self._connect()
+        await self.login()
 
         if since is None:
             since = datetime.now(pytz.utc) - timedelta(hours=hours_offset)
@@ -189,36 +201,52 @@ class MailBox:
 
         return matches
 
-    async def search_match(self, *args, **kwargs) -> str | None:
-        matches = await self.search_matches(*args, **kwargs)
+    async def search_match(
+            self,
+            regex: str | re.Pattern[str],
+            folders: Sequence[str] = None,
+            *,
+            search_criteria: Literal["ALL", "UNSEEN"] = "ALL",
+            since: datetime = None,
+            hours_offset: int = 24,
+            allowed_senders: Sequence[str] = None,
+            allowed_receivers: Sequence[str] = None,
+            sender_regex: str | re.Pattern[str] = None,
+    ) -> str | None:
+        matches = await self.search_matches(
+            regex, folders,
+            search_criteria=search_criteria,
+            since=since,
+            hours_offset=hours_offset,
+            allowed_senders=allowed_senders,
+            allowed_receivers=allowed_receivers,
+            sender_regex=sender_regex,
+        )
         return max(matches, key=lambda x: x[0].date)[1] if matches else None
 
     async def search_with_retry(
         self,
-        regex_pattern: str | re.Pattern[str],
+        regex: str | re.Pattern[str],
+        folders: Sequence[str] = None,
+        *,
         sender_email: str | re.Pattern[str] = None,
         sender_email_regex: str | re.Pattern[str] = None,
         receiver: str | None = None,
-        start_date: datetime = None,
-        return_latest_match=True,
+        since: datetime = None,
         interval: int = 5,
         timeout: int = 90,
-        **kwargs,
-    ) -> any | list[any] | None:
+    ) -> list[any] | None:
         end_time = asyncio.get_event_loop().time() + timeout
-        if start_date is None:
-            start_date = datetime.now(pytz.utc) - timedelta(seconds=15)
+        if since is None:
+            since = datetime.now(pytz.utc) - timedelta(seconds=15)
 
         while asyncio.get_event_loop().time() < end_time:
             match = await self.search_match(
-                regex=regex_pattern,
-                sender=sender_email,
+                regex, folders,
+                allowed_senders=(sender_email, ),
                 sender_regex=sender_email_regex,
-                receiver=receiver,
-                start_date=start_date,
-                limit=5,
-                return_latest_match=return_latest_match,
-                **kwargs,
+                allowed_receivers=(receiver, ),
+                since=since,
             )
 
             if match:
