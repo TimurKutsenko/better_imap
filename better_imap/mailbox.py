@@ -27,8 +27,10 @@ class MailBox:
         timeout: float = 10,
     ):
         if service.host == "imap.rambler.ru" and "%" in password:
-            raise ValueError(f"IMAP password contains '%' character. Change your password."
-                             f" It's a specific rambler.ru error")
+            raise ValueError(
+                f"IMAP password contains '%' character. Change your password."
+                f" It's a specific rambler.ru error"
+            )
 
         self._address = address
         self._password = password
@@ -88,14 +90,14 @@ class MailBox:
             )
 
     async def fetch_messages(
-            self,
-            folder: str,
-            *,
-            search_criteria: Literal["ALL", "UNSEEN"] = "ALL",
-            since: datetime = None,
-            allowed_senders: Sequence[str] = None,
-            allowed_receivers: Sequence[str] = None,
-            sender_regex: str | re.Pattern[str] = None,
+        self,
+        folder: str,
+        *,
+        search_criteria: Literal["ALL", "UNSEEN"] = "ALL",
+        since: datetime = None,
+        allowed_senders: Sequence[str] = None,
+        allowed_receivers: Sequence[str] = None,
+        sender_regex: str | re.Pattern[str] = None,
     ) -> list[EmailMessage]:
         await self.login()
 
@@ -106,11 +108,15 @@ class MailBox:
             search_criteria += f" SINCE {date_filter}"
 
         if allowed_senders:
-            senders_criteria = ' '.join([f'FROM "{sender}"' for sender in allowed_senders])
+            senders_criteria = " ".join(
+                [f'FROM "{sender}"' for sender in allowed_senders]
+            )
             search_criteria += f" {senders_criteria}"
 
         if allowed_receivers:
-            receivers_criteria = ' '.join([f'TO "{receiver}"' for receiver in allowed_receivers])
+            receivers_criteria = " ".join(
+                [f'TO "{receiver}"' for receiver in allowed_receivers]
+            )
             search_criteria += f" {receivers_criteria}"
 
         status, data = await self._imap.search(
@@ -127,12 +133,16 @@ class MailBox:
         email_ids = email_ids[::-1]
         messages = []
         for e_id_str in email_ids:
-            message = await self.get_message_by_id(e_id_str.decode(self._service.encoding))
+            message = await self.get_message_by_id(
+                e_id_str.decode(self._service.encoding)
+            )
 
             if since and message.date < since:
                 continue
 
-            if sender_regex and not re.search(sender_regex, message.sender, re.IGNORECASE):
+            if sender_regex and not re.search(
+                sender_regex, message.sender, re.IGNORECASE
+            ):
                 continue
 
             messages.append(message)
@@ -171,30 +181,26 @@ class MailBox:
             )
 
             for message in messages:
-                found = re.findall(regex, message.text)
-
-                if not found:
-                    continue
-
-                if match := found[0]:
-                    matches.append((message, match))
+                if found := re.findall(regex, message.text):
+                    matches.append((message, found[0]))
 
         return matches
 
     async def search_match(
-            self,
-            regex: str | re.Pattern[str],
-            folders: Sequence[str] = None,
-            *,
-            search_criteria: Literal["ALL", "UNSEEN"] = "ALL",
-            since: datetime = None,
-            hours_offset: int = 24,
-            allowed_senders: Sequence[str] = None,
-            allowed_receivers: Sequence[str] = None,
-            sender_regex: str | re.Pattern[str] = None,
+        self,
+        regex: str | re.Pattern[str],
+        folders: Sequence[str] = None,
+        *,
+        search_criteria: Literal["ALL", "UNSEEN"] = "ALL",
+        since: datetime = None,
+        hours_offset: int = 24,
+        allowed_senders: Sequence[str] = None,
+        allowed_receivers: Sequence[str] = None,
+        sender_regex: str | re.Pattern[str] = None,
     ) -> str | None:
         matches = await self.search_matches(
-            regex, folders,
+            regex,
+            folders,
             search_criteria=search_criteria,
             since=since,
             hours_offset=hours_offset,
@@ -222,7 +228,8 @@ class MailBox:
 
         while asyncio.get_event_loop().time() < end_time:
             match = await self.search_match(
-                regex, folders,
+                regex,
+                folders,
                 allowed_senders=allowed_senders,
                 sender_regex=sender_email_regex,
                 allowed_receivers=allowed_receivers,
