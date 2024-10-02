@@ -150,7 +150,7 @@ class MailBox:
         allowed_senders: Sequence[str] = None,
         allowed_receivers: Sequence[str] = None,
         sender_regex: str | re.Pattern[str] = None,
-    ) -> list[str]:
+    ) -> list[tuple[EmailMessage, str]]:
         await self.login()
 
         if since is None:
@@ -171,8 +171,8 @@ class MailBox:
             )
 
             for message in messages:
-                matches = re.findall(regex, message.text)
-                if match := matches[0]:
+                found = re.findall(regex, message.text)
+                if match := found[0]:
                     matches.append((message, match))
 
         return matches
@@ -205,9 +205,9 @@ class MailBox:
         regex: str | re.Pattern[str],
         folders: Sequence[str] = None,
         *,
-        sender_email: str | re.Pattern[str] = None,
+        allowed_senders: Sequence[str] = None,
+        allowed_receivers: Sequence[str] = None,
         sender_email_regex: str | re.Pattern[str] = None,
-        receiver: str | None = None,
         since: datetime = None,
         interval: int = 5,
         timeout: int = 90,
@@ -219,9 +219,9 @@ class MailBox:
         while asyncio.get_event_loop().time() < end_time:
             match = await self.search_match(
                 regex, folders,
-                allowed_senders=(sender_email, ),
+                allowed_senders=allowed_senders,
                 sender_regex=sender_email_regex,
-                allowed_receivers=(receiver, ),
+                allowed_receivers=allowed_receivers,
                 since=since,
             )
 
