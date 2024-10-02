@@ -172,6 +172,10 @@ class MailBox:
 
             for message in messages:
                 found = re.findall(regex, message.text)
+
+                if not found:
+                    continue
+
                 if match := found[0]:
                     matches.append((message, match))
 
