@@ -54,4 +54,9 @@ DOMAIN_TO_SERVICE = {
     "@historiogramail.com": FIRSTMAIL,
     "@ambismail.com": FIRSTMAIL,
     "@andromomail.com": FIRSTMAIL,
+    "@superocomail.com": FIRSTMAIL,
+    "@velismail.com": FIRSTMAIL,
+    "@veridicalmail.com": FIRSTMAIL,
+    "@epidemiosmail.ru": FIRSTMAIL,
+    "@encepsmail.ru": FIRSTMAIL,
 }
