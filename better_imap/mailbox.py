@@ -6,6 +6,7 @@ from email.utils import parsedate_to_datetime
 import re
 
 import pytz
+from better_imap.utils import get_service_by_email_address
 from better_proxy import Proxy
 
 from .proxy import IMAP4_SSL_PROXY
@@ -19,18 +20,22 @@ from .utils import extract_email_text
 class MailBox:
     def __init__(
         self,
-        service: Service,
         address: str,
         password: str,
         *,
+        service: Service = None,
         proxy: Proxy = None,
         timeout: float = 10,
     ):
+        if not service:
+            service = get_service_by_email_address(address)
+
         if service.host == "imap.rambler.ru" and "%" in password:
             raise ValueError(
                 f"IMAP password contains '%' character. Change your password."
                 f" It's a specific rambler.ru error"
             )
+
 
         self._address = address
         self._password = password

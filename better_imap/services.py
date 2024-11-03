@@ -59,4 +59,5 @@ DOMAIN_TO_SERVICE = {
     "@veridicalmail.com": FIRSTMAIL,
     "@epidemiosmail.ru": FIRSTMAIL,
     "@encepsmail.ru": FIRSTMAIL,
+    "@reevalmail.com": FIRSTMAIL,
 }
