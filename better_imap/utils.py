@@ -1,7 +1,9 @@
 from email.message import Message
 import re
+import html2text
 
-from bs4 import BeautifulSoup
+text_maker = html2text.HTML2Text()
+text_maker.ignore_links = False
 
 
 def clean_text(text: str) -> str:
@@ -52,9 +54,8 @@ def extract_email_text(message: Message):
         cleaned_text = clean_text(text_content)
         return cleaned_text
     elif html_content:
-        soup = BeautifulSoup(html_content, "html.parser")
-        text = soup.get_text()
-        cleaned_text = clean_text(text)
+        cleaned_text = text_maker.handle(html_content)
+        # cleaned_text = clean_text(text)
         return cleaned_text
     else:
         return ""
