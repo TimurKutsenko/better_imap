@@ -60,4 +60,8 @@ DOMAIN_TO_SERVICE = {
     "@epidemiosmail.ru": FIRSTMAIL,
     "@encepsmail.ru": FIRSTMAIL,
     "@reevalmail.com": FIRSTMAIL,
+    "@decortiomail.ru": FIRSTMAIL,
+    "@decomposaomail.ru": FIRSTMAIL,
+    "@custoomail.ru": FIRSTMAIL,
+    "@curviomail.ru": FIRSTMAIL,
 }
