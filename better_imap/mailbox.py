@@ -26,6 +26,7 @@ class MailBox:
         service: Service = None,
         proxy: Proxy = None,
         timeout: float = 10,
+        loop: asyncio.AbstractEventLoop = None,
     ):
         if not service:
             service = get_service_by_email_address(address)
@@ -36,7 +37,6 @@ class MailBox:
                 f" It's a specific rambler.ru error"
             )
 
-
         self._address = address
         self._password = password
         self._service = service
@@ -45,6 +45,7 @@ class MailBox:
             host=service.host,
             proxy=proxy,
             timeout=timeout,
+            loop=loop,
         )
 
     async def __aenter__(self):
