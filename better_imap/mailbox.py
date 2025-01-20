@@ -9,7 +9,7 @@ import pytz
 from better_imap.utils import get_service_by_email_address
 from better_proxy import Proxy
 
-from .proxy import IMAP4_SSL_PROXY
+from .imap import IMAP4_SSL_PROXY
 from .errors import IMAPSearchTimeout
 from .errors import IMAPLoginFailed
 from .models import EmailMessage
@@ -24,7 +24,7 @@ class MailBox:
         password: str,
         *,
         service: Service = None,
-        proxy: Proxy = None,
+        proxy: Proxy | None = None,
         timeout: float = 10,
         loop: asyncio.AbstractEventLoop = None,
     ):

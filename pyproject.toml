@@ -1,20 +1,21 @@
 [tool.poetry]
 name = "better-imap"
-version = "1.0.9"
+version = "1.2.0"
 description = "IMAP tools"
 authors = ["T1murKO", "Alen <alen.kimov@gmail.com>"]
 readme = "README.md"
 packages = [{include = "better_imap"}]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.11, <3.14"
 better-proxy = "^1.1"
 python-socks = "^2.5"
-aioimaplib = "1.1.0"
+aioimaplib = ">=2.0.1, <2.1"
 pytz = "^2024.2"
 async-timeout = "^4.0"
 beautifulsoup4 = "^4.12"
 html2text = "^2024.2.26"
+tenacity = "^9.0.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24"
