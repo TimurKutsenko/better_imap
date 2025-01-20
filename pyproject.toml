@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "better-imap"
-version = "1.2.0"
+version = "1.2.1"
 description = "IMAP tools"
 authors = ["T1murKO", "Alen <alen.kimov@gmail.com>"]
 readme = "README.md"
