@@ -15,7 +15,7 @@ pytz = "^2024.2"
 async-timeout = "^4.0"
 beautifulsoup4 = "^4.12"
 html2text = "^2024.2.26"
-tenacity = "^9.0.0"
+tenacity = ">=9.0.0, <10"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24"
