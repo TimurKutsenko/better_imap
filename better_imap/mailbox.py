@@ -12,8 +12,10 @@ from .errors import IMAPSearchTimeout, IMAPLoginFailed
 from .models import EmailMessage, ServiceType
 from .utils import extract_email_text
 
+
 class MailBox:
     DEDAULT_FOLDER_NAMES = ["INBOX", "Junk", "Spam"]
+
     def __init__(
         self,
         address: str,
@@ -26,6 +28,7 @@ class MailBox:
     ):
         if not service:
             service = get_service_by_email_address(address)
+
         if service.host == "imap.rambler.ru" and "%" in password:
             raise ValueError(
                 f"IMAP password contains '%' character. Change your password."
@@ -67,7 +70,7 @@ class MailBox:
             if self._imap.get_state() == "AUTH":
                 raise IMAPLoginFailed()
         except TimeoutError:
-            raise IMAPLoginFailed('Timeout')
+            raise IMAPLoginFailed("Timeout")
 
     async def get_message_by_id(self, msg_id) -> EmailMessage:
         typ, msg_data = await self._imap.fetch(msg_id, "(RFC822)")
@@ -130,7 +133,9 @@ class MailBox:
                     continue
                 if since and message.date < since:
                     continue
-                if sender_regex and not re.search(sender_regex, message.sender, re.IGNORECASE):
+                if sender_regex and not re.search(
+                    sender_regex, message.sender, re.IGNORECASE
+                ):
                     continue
                 all_messages.append(message)
         return all_messages

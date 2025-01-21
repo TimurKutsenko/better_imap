@@ -1,17 +1,20 @@
 from email.message import Message
 import re
 import html2text
+
+from better_imap.errors import UnknownEmailDomain
 from better_imap.models import ServiceType
 from better_imap.services import DOMAIN_TO_SERVICE
 
 text_maker = html2text.HTML2Text()
 text_maker.ignore_links = False
 
+
 def get_service_by_email_address(email_address: str) -> ServiceType:
     domain = "@" + email_address.split("@")[1]
 
     if domain not in DOMAIN_TO_SERVICE:
-        raise ValueError(f"Unknown mail domain: {domain}")
+        raise UnknownEmailDomain(email_address)
 
     return DOMAIN_TO_SERVICE[domain]
 

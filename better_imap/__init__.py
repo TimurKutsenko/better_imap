@@ -1,12 +1,11 @@
 from .mailbox import MailBox
-from .models import EmailMessage
-from .models import ServiceType
-from .errors import BetterImapException
-from .errors import IMAPLoginFailed
-from .errors import IMAPSearchTimeout
+from .models import ServiceType, EmailMessage
+from .errors import BetterImapException, IMAPLoginFailed, IMAPSearchTimeout
+from .services import Service
 
 __all__ = [
     "MailBox",
+    "Service",
     "EmailMessage",
     "ServiceType",
     "BetterImapException",
