@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timedelta
-from typing import Literal, Sequence
+from typing import Literal
 from email import message_from_bytes
 from email.utils import parsedate_to_datetime
 import re
@@ -62,7 +62,12 @@ class MailBox:
         self._connected = True
 
     async def _select(self, folder: str):
-        return await self._imap.select(mailbox=folder)
+        try:
+            await self._imap.select(mailbox=folder)
+            if self._imap.get_state() == "AUTH":
+                raise IMAPLoginFailed()
+        except TimeoutError:
+            raise IMAPLoginFailed('Timeout')
 
     async def get_message_by_id(self, msg_id) -> EmailMessage:
         typ, msg_data = await self._imap.fetch(msg_id, "(RFC822)")
@@ -88,17 +93,15 @@ class MailBox:
 
     async def fetch_messages(
         self,
-        folders: str | Sequence[str] | None = None,
+        folders: list[str] | None = None,
         *,
         search_criteria: Literal["ALL", "UNSEEN"] = "ALL",
         since: datetime = None,
-        allowed_senders: Sequence[str] = None,
-        allowed_receivers: Sequence[str] = None,
+        allowed_senders: list[str] = None,
+        allowed_receivers: list[str] = None,
         sender_regex: str | re.Pattern[str] = None,
     ) -> list[EmailMessage]:
         await self.login()
-        if isinstance(folders, str):
-            folders = [folders]
         folders = folders or self.DEDAULT_FOLDER_NAMES
         all_messages = []
         additional_criteria = ""
@@ -135,19 +138,17 @@ class MailBox:
     async def search_matches(
         self,
         regex: str | re.Pattern[str],
-        folders: str | Sequence[str] | None = None,
+        folders: list[str] | None = None,
         *,
         search_criteria: Literal["ALL", "UNSEEN"] = "ALL",
         since: datetime = None,
         hours_offset: int = 24,
-        allowed_senders: Sequence[str] = None,
-        allowed_receivers: Sequence[str] = None,
+        allowed_senders: list[str] = None,
+        allowed_receivers: list[str] = None,
         sender_regex: str | re.Pattern[str] = None,
         return_latest: bool = False,
     ) -> str | list[str] | None:
         await self.login()
-        if isinstance(folders, str):
-            folders = [folders]
         if since is None:
             since = datetime.now(pytz.utc) - timedelta(hours=hours_offset)
         folders = folders or self.DEDAULT_FOLDER_NAMES
@@ -176,17 +177,15 @@ class MailBox:
     async def search_match(
         self,
         regex: str | re.Pattern[str],
-        folders: str | Sequence[str] | None = None,
+        folders: list[str] | None = None,
         *,
         search_criteria: Literal["ALL", "UNSEEN"] = "ALL",
         since: datetime = None,
         hours_offset: int = 24,
-        allowed_senders: Sequence[str] = None,
-        allowed_receivers: Sequence[str] = None,
+        allowed_senders: list[str] = None,
+        allowed_receivers: list[str] = None,
         sender_regex: str | re.Pattern[str] = None,
     ) -> str | None:
-        if isinstance(folders, str):
-            folders = [folders]
         result = await self.search_matches(
             regex,
             folders=folders,
@@ -203,18 +202,16 @@ class MailBox:
     async def search_with_retry(
         self,
         regex: str | re.Pattern[str],
-        folders: str | Sequence[str] | None = None,
+        folders: list[str] | None = None,
         *,
-        allowed_senders: Sequence[str] = None,
-        allowed_receivers: Sequence[str] = None,
+        allowed_senders: list[str] = None,
+        allowed_receivers: list[str] = None,
         sender_email_regex: str | re.Pattern[str] = None,
         since: datetime = None,
         interval: int = 5,
         timeout: int = 90,
     ) -> str | None:
         end_time = asyncio.get_event_loop().time() + timeout
-        if isinstance(folders, str):
-            folders = [folders]
         if since is None:
             since = datetime.now(pytz.utc) - timedelta(seconds=15)
         folders = folders or self.DEDAULT_FOLDER_NAMES
