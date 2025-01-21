@@ -1,13 +1,11 @@
-from typing import Sequence
 from datetime import datetime
-
 from pydantic import BaseModel
 
 
-class Service(BaseModel):
+class ServiceType(BaseModel):
     name: str | None = None
     host: str
-    folders: Sequence[str] = ("INBOX", )
+    folders: list[str] = ("INBOX", )
     encoding: str | None = "UTF-8"  # "US-ASCII"
 
 

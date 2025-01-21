@@ -1,13 +1,13 @@
 from email.message import Message
 import re
 import html2text
-from better_imap.models import Service
+from better_imap.models import ServiceType
 from better_imap.services import DOMAIN_TO_SERVICE
 
 text_maker = html2text.HTML2Text()
 text_maker.ignore_links = False
 
-def get_service_by_email_address(email_address: str) -> Service:
+def get_service_by_email_address(email_address: str) -> ServiceType:
     domain = "@" + email_address.split("@")[1]
 
     if domain not in DOMAIN_TO_SERVICE:
