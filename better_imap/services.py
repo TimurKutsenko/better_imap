@@ -2,7 +2,7 @@ from .models import ServiceType
 from enum import Enum
 
 
-class Service(Enum):
+class Service:
     RAMBLER = ServiceType(
         name="Rambler",
         host="imap.rambler.ru",
