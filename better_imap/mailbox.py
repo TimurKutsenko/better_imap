@@ -99,7 +99,7 @@ class MailBox:
         folders: list[str] | None = None,
         *,
         search_criteria: Literal["ALL", "UNSEEN"] = "ALL",
-        since: datetime = None,
+        since: datetime | None = None,
         allowed_senders: list[str] = None,
         allowed_receivers: list[str] = None,
         sender_regex: str | re.Pattern[str] = None,
@@ -147,7 +147,7 @@ class MailBox:
         *,
         search_criteria: Literal["ALL", "UNSEEN"] = "ALL",
         since: datetime = None,
-        hours_offset: int = 24,
+        hours_offset: int | None = None,
         allowed_senders: list[str] = None,
         allowed_receivers: list[str] = None,
         sender_regex: str | re.Pattern[str] = None,
@@ -155,7 +155,8 @@ class MailBox:
     ) -> str | list[str] | None:
         await self.login()
         if since is None:
-            since = datetime.now(pytz.utc) - timedelta(hours=hours_offset)
+            if hours_offset is None:
+                since = datetime.now(pytz.utc) - timedelta(hours=hours_offset)
         folders = folders or self.DEDAULT_FOLDER_NAMES
         temp_matches = []
         messages = await self.fetch_messages(
