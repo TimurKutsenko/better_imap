@@ -29,8 +29,8 @@ def clean_text(text: str) -> str:
 
 
 def extract_email_text(message: Message):
-    text_content = None
-    html_content = None
+    text_content = ""
+    html_content = ""
 
     if message.is_multipart():
         for part in message.walk():
@@ -64,11 +64,9 @@ def extract_email_text(message: Message):
             )
 
     if text_content and text_content.strip():
-        cleaned_text = clean_text(text_content)
-        return cleaned_text
-    elif html_content:
-        cleaned_text = text_maker.handle(html_content)
-        # cleaned_text = clean_text(text)
-        return cleaned_text
-    else:
-        return ""
+        text_content = clean_text(text_content)
+
+    if html_content:
+        html_content = text_maker.handle(html_content)
+
+    return text_content + html_content
