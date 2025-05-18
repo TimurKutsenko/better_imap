@@ -138,6 +138,7 @@ class MailBox:
                 ):
                     continue
                 all_messages.append(message)
+        all_messages.sort(key=lambda msg: msg.date, reverse=True)
         return all_messages
 
     async def search_matches(
