@@ -111,12 +111,6 @@ class MailBox:
         if since:
             date_filter = since.strftime("%d-%b-%Y")
             additional_criteria += f" SINCE {date_filter}"
-        if allowed_senders:
-            senders_criteria = " ".join(f'FROM "{s}"' for s in allowed_senders)
-            additional_criteria += f" {senders_criteria}"
-        if allowed_receivers:
-            receivers_criteria = " ".join(f'TO "{r}"' for r in allowed_receivers)
-            additional_criteria += f" {receivers_criteria}"
         for folder in folders:
             await self._select(folder)
             final_search_criteria = f"{search_criteria}{additional_criteria}".strip()
@@ -131,6 +125,20 @@ class MailBox:
                 message = await self.get_message_by_id(msg_id)
                 if not message:
                     continue
+                if allowed_senders:
+                    if not any(
+                        re.search(pat, message.sender, re.IGNORECASE)
+                        for pat in allowed_senders
+                    ):
+                        continue
+
+                if allowed_receivers:
+                    if not any(
+                        re.search(pat, message.receiver, re.IGNORECASE)
+                        for pat in allowed_receivers
+                    ):
+                        continue
+
                 if since and message.date < since:
                     continue
                 if sender_regex and not re.search(
