@@ -285,5 +285,9 @@ DOMAIN_TO_SERVICE = {
     "@vespertfml.com": Service.FIRSTMAIL,
     "@vocationaml.com": Service.FIRSTMAIL,
     "@volumefml.com": Service.FIRSTMAIL,
-    "@xerodeml.com": Service.FIRSTMAIL
+    "@xerodeml.com": Service.FIRSTMAIL,
+    "@regardermail.com": Service.FIRSTMAIL,
+    "@utiliseremail.com": Service.FIRSTMAIL,
+    "@demainmail.com": Service.FIRSTMAIL,
+    "@difficilemail.com": Service.FIRSTMAIL,
 }

@@ -22,12 +22,13 @@ class MailBox:
         password: str,
         *,
         service: ServiceType = None,
+        use_firstmail_on_unknown_domain: bool = True,
         proxy: Proxy | None = None,
         timeout: float = 10,
         loop: asyncio.AbstractEventLoop = None,
     ):
         if not service:
-            service = get_service_by_email_address(address)
+            service = get_service_by_email_address(address, use_firstmail_on_unknown_domain)
 
         if service.host == "imap.rambler.ru" and "%" in password:
             raise ValueError(
