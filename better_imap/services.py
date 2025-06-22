@@ -33,9 +33,15 @@ class Service:
         host="imap.firstmail.ltd",
         folders=["INBOX"],
     )
+    GMX = ServiceType(
+        name="GMX",
+        host="imap.gmx.com",
+        folders=["INBOX", "Spam"],
+    )
 
 
 DOMAIN_TO_SERVICE = {
+    "@gmx.com": Service.FIRSTMAIL,
     "@rambler.ru": Service.RAMBLER,
     "@ro.ru": Service.RAMBLER,
     "@myrambler.ru": Service.RAMBLER,
