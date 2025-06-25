@@ -41,7 +41,7 @@ class Service:
 
 
 DOMAIN_TO_SERVICE = {
-    "@gmx.com": Service.FIRSTMAIL,
+    "@gmx.com": Service.GMX,
     "@rambler.ru": Service.RAMBLER,
     "@ro.ru": Service.RAMBLER,
     "@myrambler.ru": Service.RAMBLER,
