@@ -81,6 +81,7 @@ class MailBox:
             email_sender = email_message.get("from")
             email_receiver = email_message.get("to")
             subject = email_message.get("subject")
+            subject = subject if isinstance(subject, str) else None
             email_date = parsedate_to_datetime(email_message.get("date"))
             if email_date.tzinfo is None:
                 email_date = pytz.utc.localize(email_date)
