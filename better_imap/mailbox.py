@@ -78,10 +78,14 @@ class MailBox:
         if typ == "OK":
             email_bytes = bytes(msg_data[1])
             email_message = message_from_bytes(email_bytes)
-            email_sender = email_message.get("from")
-            email_receiver = email_message.get("to")
-            subject = email_message.get("subject")
-            subject = subject if isinstance(subject, str) else None
+
+            def get_header(name):
+                value = email_message.get(name)
+                return value if isinstance(value, str) else str(value)
+
+            email_sender = get_header("from")
+            email_receiver = get_header("to")
+            subject = get_header("subject")
             email_date = parsedate_to_datetime(email_message.get("date"))
             if email_date.tzinfo is None:
                 email_date = pytz.utc.localize(email_date)
