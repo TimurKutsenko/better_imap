@@ -10,16 +10,16 @@ text_maker = html2text.HTML2Text()
 text_maker.ignore_links = False
 
 
-def get_service_by_email_address(email_address: str, use_firstmail_on_unknown_domain=True) -> ServiceType:
+def get_service_by_email_address(email_address: str, use_firstmail_on_unknown_domain=True) -> tuple[ServiceType, bool]:
     domain = "@" + email_address.split("@")[1]
 
     if domain not in DOMAIN_TO_SERVICE:
         if use_firstmail_on_unknown_domain:
-            return Service.FIRSTMAIL
+            return Service.FIRSTMAIL, True
         else:
             raise UnknownEmailDomain(email_address)
 
-    return DOMAIN_TO_SERVICE[domain]
+    return DOMAIN_TO_SERVICE[domain], False
 
 
 def clean_text(text: str) -> str:

@@ -8,7 +8,7 @@ import pytz
 from better_imap.utils import get_service_by_email_address
 from better_proxy import Proxy
 from .imap import IMAP4_SSL_PROXY
-from .errors import IMAPSearchTimeout, IMAPLoginFailed
+from .errors import IMAPSearchTimeout, IMAPLoginFailed, WrongIMAPAddress
 from .models import EmailMessage, ServiceType
 from .utils import extract_email_text
 
@@ -27,14 +27,17 @@ class MailBox:
         timeout: float = 10,
         loop: asyncio.AbstractEventLoop = None,
     ):
+        used_default = False
         if not service:
-            service = get_service_by_email_address(address, use_firstmail_on_unknown_domain)
+            service, used_default = get_service_by_email_address(address, use_firstmail_on_unknown_domain)
 
         if service.host == "imap.rambler.ru" and "%" in password:
             raise ValueError(
                 f"IMAP password contains '%' character. Change your password."
                 f" It's a specific rambler.ru error"
             )
+
+        self._used_default_imap_address = used_default
         self._address = address
         self._password = password
         self._service = service
@@ -60,8 +63,14 @@ class MailBox:
         if self._connected:
             return
         await self._imap.wait_hello_from_server()
-        await self._imap.login(self._address, self._password)
+        try:
+            await self._imap.login(self._address, self._password)
+        except TimeoutError:
+            raise IMAPLoginFailed("Timeout")
+
         if self._imap.get_state() == "NONAUTH":
+            if self._used_default_imap_address:
+                raise WrongIMAPAddress()
             raise IMAPLoginFailed()
         self._connected = True
 

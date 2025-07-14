@@ -9,6 +9,9 @@ class IMAPLoginFailed(BetterImapException):
             f"IMAP disabled or account banned or incorrect login/password {msg}"
         )
 
+class WrongIMAPAddress(BetterImapException):
+    def __init__(self):
+        super().__init__("Wrong IMAP address")
 
 class IMAPSearchTimeout(BetterImapException):
     pass
